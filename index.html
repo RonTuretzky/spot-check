@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<title>Spot Check</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .container { max-width: 600px; margin: 0 auto; padding: 12px; }
+
+  /* Selector screen */
+  #selector {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 100vh; gap: 24px;
+  }
+  #selector h1 { font-size: 28px; font-weight: 700; }
+  #selector p { color: #94a3b8; font-size: 14px; text-align: center; max-width: 400px; line-height: 1.6; }
+  .instructions-box {
+    background: #1e293b; border: 1px solid #334155; border-radius: 12px;
+    padding: 16px 20px; max-width: 440px; width: 100%; text-align: left;
+  }
+  .instructions-box h3 { font-size: 14px; font-weight: 700; margin-bottom: 8px; color: #a78bfa; }
+  .instructions-box ol {
+    padding-left: 18px; font-size: 13px; color: #94a3b8; line-height: 1.8;
+  }
+  .instructions-box li { margin-bottom: 2px; }
+  .instructions-box strong { color: #e2e8f0; }
+  .select-btn {
+    width: 100%; max-width: 340px; padding: 20px; border: 2px solid #334155;
+    border-radius: 16px; background: #1e293b; color: #e2e8f0;
+    font-size: 18px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; gap: 12px;
+    touch-action: manipulation; min-height: 64px;
+  }
+  .select-btn:hover { border-color: #6366f1; background: #1e1b4b; transform: translateY(-2px); }
+  .select-btn:active { transform: scale(0.98); }
+  .select-btn .icon { font-size: 28px; }
+
+  /* Checklist screen */
+  #checklist { display: none; padding-bottom: 100px; }
+  .header {
+    position: sticky; top: 0; background: #0f172a; padding: 16px 0 8px; z-index: 10;
+    border-bottom: 1px solid #1e293b; overflow: visible;
+  }
+  .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .header h2 { font-size: 20px; font-weight: 700; }
+  .back-btn {
+    background: none; border: 1px solid #334155; color: #94a3b8; padding: 8px 14px;
+    border-radius: 8px; cursor: pointer; font-size: 13px;
+    touch-action: manipulation; min-height: 40px;
+    display: flex; align-items: center; flex-shrink: 0;
+  }
+  .back-btn:hover { border-color: #6366f1; color: #e2e8f0; }
+
+  /* Minimap — outer wrapper prevents vertical clipping */
+  .minimap-wrap {
+    margin-bottom: 8px;
+  }
+  .minimap {
+    display: flex; align-items: center; gap: 2px;
+    padding: 30px 4px 10px; overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; -ms-overflow-style: none;
+  }
+  .minimap::-webkit-scrollbar { display: none; }
+  .minimap-node {
+    display: flex; flex-direction: column; align-items: center; min-width: 58px;
+    position: relative; flex-shrink: 0;
+  }
+  .minimap-dot {
+    width: 54px; height: 54px; border-radius: 14px; border: 2px solid #334155;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.3s; background: #1e293b;
+    position: relative; z-index: 2;
+  }
+  .minimap-icon {
+    font-size: 30px; line-height: 1; display: block;
+  }
+  .minimap-dot.done { background: #059669; border-color: #059669; }
+  .minimap-dot.active { border-color: #6366f1; background: #312e81; box-shadow: 0 0 10px #6366f150; }
+  .minimap-dot.pending { opacity: 0.4; }
+  .minimap-label {
+    font-size: 9px; color: #64748b; margin-top: 5px; text-align: center;
+    max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .minimap-label.active { color: #a78bfa; font-weight: 600; }
+  .minimap-connector {
+    width: 10px; height: 2px; background: #334155; flex-shrink: 0; margin-bottom: 28px;
+  }
+  .minimap-connector.done { background: #059669; }
+  .minimap-avatar {
+    position: absolute; top: -26px; font-size: 20px; z-index: 3;
+    animation: avatarBounce 1s ease infinite;
+  }
+  @keyframes avatarBounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+  }
+
+  /* Progress bar */
+  .progress-wrap { margin-bottom: 4px; }
+  .progress-bar-bg {
+    width: 100%; height: 12px; background: #1e293b; border-radius: 99px; overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%; background: linear-gradient(90deg, #6366f1, #a78bfa);
+    border-radius: 99px; transition: width 0.4s ease; width: 0%;
+  }
+  .progress-stats {
+    display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; margin-top: 4px;
+    flex-wrap: wrap; gap: 2px 8px;
+  }
+  .xp-badge {
+    display: inline-flex; align-items: center; gap: 4px; background: #1e1b4b;
+    color: #a78bfa; padding: 2px 8px; border-radius: 99px; font-weight: 600;
+  }
+
+  /* Zones */
+  .zone {
+    margin-top: 20px; border: 1px solid #1e293b; border-radius: 12px;
+    overflow: hidden; background: #1e293b;
+  }
+  .zone-header {
+    padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;
+    cursor: pointer; user-select: none; gap: 8px; min-height: 48px;
+  }
+  .zone-header h3 {
+    font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 6px;
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .zone-badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 99px; font-weight: 600;
+  }
+  .zone-badge.pending { background: #1e293b; color: #64748b; border: 1px solid #334155; }
+  .zone-badge.active { background: #312e81; color: #a78bfa; border: 1px solid #4338ca; }
+  .zone-badge.done { background: #064e3b; color: #6ee7b7; border: 1px solid #059669; }
+  .zone-time { font-size: 11px; color: #64748b; white-space: nowrap; }
+  .zone-items { padding: 0 12px 12px; }
+  .zone.current { border-color: #4338ca; }
+  .zone.locked { opacity: 0.5; }
+  .zone.locked .zone-header { cursor: not-allowed; }
+
+  /* Check items — yes/no style */
+  .check-item {
+    display: flex; align-items: center; gap: 8px; padding: 10px 0;
+    border-bottom: 1px solid #0f172a; transition: all 0.3s; position: relative;
+    overflow: hidden; flex-wrap: wrap;
+  }
+  .check-item:last-child { border-bottom: none; }
+  .check-item-label {
+    font-size: 14px; line-height: 1.5; flex: 1; min-width: 0;
+    word-wrap: break-word; overflow-wrap: break-word;
+  }
+  .check-item.answered-yes .check-item-label { color: #64748b; }
+  .check-item.answered-no .check-item-label { color: #fbbf24; }
+
+  .yn-btns { display: flex; gap: 6px; flex-shrink: 0; }
+  .yn-btn {
+    padding: 8px 16px; border-radius: 8px; border: 1.5px solid #475569;
+    background: none; color: #94a3b8; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s;
+    min-height: 44px; min-width: 54px;
+    display: flex; align-items: center; justify-content: center;
+    touch-action: manipulation;
+  }
+  .yn-btn:hover { border-color: #6366f1; color: #e2e8f0; }
+  .yn-btn:active { transform: scale(0.95); }
+  .yn-btn.yes-active { background: #059669; border-color: #059669; color: white; }
+  .yn-btn.no-active { background: #dc2626; border-color: #dc2626; color: white; }
+
+  /* Stack label above buttons on very narrow screens */
+  @media (max-width: 380px) {
+    .check-item { flex-wrap: wrap; }
+    .check-item-label { flex-basis: 100%; min-width: 100%; }
+    .yn-btns { margin-left: auto; margin-top: 4px; }
+  }
+
+  /* Confetti burst animation */
+  .check-item .confetti-burst {
+    position: absolute; pointer-events: none; left: 50%; top: 50%;
+  }
+  .confetti-particle {
+    position: absolute; width: 6px; height: 6px; border-radius: 50%;
+    animation: confettiPop 0.6s ease-out forwards;
+  }
+  @keyframes confettiPop {
+    0% { transform: translate(0, 0) scale(1); opacity: 1; }
+    100% { opacity: 0; }
+  }
+  /* Checkmark pop */
+  @keyframes popIn {
+    0% { transform: scale(0) rotate(-30deg); opacity: 0; }
+    60% { transform: scale(1.3) rotate(5deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0); opacity: 1; }
+  }
+  .answer-indicator {
+    font-size: 18px; min-width: 24px; text-align: center;
+    animation: popIn 0.35s ease-out;
+  }
+
+  /* Completion screen */
+  #complete {
+    display: none; flex-direction: column; align-items: center; justify-content: flex-start;
+    min-height: 100vh; gap: 16px; text-align: center; padding: 32px 12px 60px;
+  }
+  #complete .trophy { font-size: 72px; animation: bounce 0.6s ease; }
+  @keyframes bounce {
+    0% { transform: scale(0); } 50% { transform: scale(1.3); } 100% { transform: scale(1); }
+  }
+  #complete h2 { font-size: 28px; font-weight: 700; }
+  #complete .final-stats { color: #94a3b8; font-size: 14px; }
+  #complete .final-xp { font-size: 24px; color: #a78bfa; font-weight: 700; margin: 8px 0; }
+
+  .report-box {
+    width: 100%; max-width: 500px; background: #1e293b; border: 1px solid #334155;
+    border-radius: 12px; padding: 16px; text-align: left; margin-top: 12px;
+  }
+  .report-box h3 { font-size: 14px; font-weight: 700; margin-bottom: 8px; color: #a78bfa; }
+  .report-content {
+    font-size: 13px; color: #cbd5e1; white-space: pre-wrap; line-height: 1.6;
+    max-height: 300px; overflow-y: auto; font-family: inherit;
+  }
+  .copy-btn {
+    margin-top: 12px; padding: 14px 24px; background: #6366f1; color: white;
+    border: none; border-radius: 10px; font-size: 15px; font-weight: 600;
+    cursor: pointer; width: 100%; transition: all 0.2s;
+    touch-action: manipulation; min-height: 48px;
+  }
+  .copy-btn:hover { background: #4f46e5; }
+  .copy-btn:active { transform: scale(0.98); }
+  .copy-btn.copied { background: #059669; }
+  .restart-btn {
+    margin-top: 8px; padding: 14px 24px; background: none; color: #94a3b8;
+    border: 1px solid #334155; border-radius: 10px; font-size: 15px;
+    font-weight: 600; cursor: pointer; width: 100%; max-width: 500px;
+    touch-action: manipulation; min-height: 48px;
+  }
+  .restart-btn:hover { border-color: #6366f1; color: #e2e8f0; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    left: 50%; transform: translateX(-50%);
+    background: #6366f1; color: white; padding: 10px 20px; border-radius: 12px;
+    font-size: 14px; font-weight: 600; opacity: 0; transition: opacity 0.3s;
+    pointer-events: none; z-index: 100; max-width: 90vw; text-align: center;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- SELECTOR -->
+  <div id="selector">
+    <h1>Spot Check</h1>
+    <div class="instructions-box">
+      <h3>How to Use</h3>
+      <ol>
+        <li>Pick <strong>School</strong> or <strong>Convent</strong> below</li>
+        <li>Walk through each area — for every item, tap <strong>Yes</strong> (all good) or <strong>No</strong> (needs attention)</li>
+        <li>You must answer every item before moving to the next zone</li>
+        <li>When you're done, a <strong>report</strong> is generated with all the issues</li>
+        <li>Tap <strong>"Copy Report"</strong> and paste it into the group chat</li>
+      </ol>
+    </div>
+    <button class="select-btn" onclick="startChecklist('school')">
+      <span class="icon">🏫</span> School
+    </button>
+    <button class="select-btn" onclick="startChecklist('convent')">
+      <span class="icon">🏠</span> Convent
+    </button>
+  </div>
+
+  <!-- CHECKLIST -->
+  <div id="checklist">
+    <div class="header">
+      <div class="header-top">
+        <h2 id="checklist-title"></h2>
+        <button class="back-btn" onclick="goBack()">← Back</button>
+      </div>
+      <div class="minimap-wrap"><div id="minimap" class="minimap"></div></div>
+      <div class="progress-wrap">
+        <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill"></div></div>
+        <div class="progress-stats">
+          <span id="progress-text">0 / 0</span>
+          <span id="time-remaining"></span>
+          <span class="xp-badge">⭐ <span id="xp-count">0</span> XP</span>
+        </div>
+      </div>
+    </div>
+    <div id="zones"></div>
+  </div>
+
+  <!-- COMPLETE -->
+  <div id="complete">
+    <div class="trophy">🏆</div>
+    <h2>Spot Check Complete!</h2>
+    <div class="final-stats" id="final-stats"></div>
+    <div class="final-xp" id="final-xp"></div>
+    <div class="report-box">
+      <h3>Report</h3>
+      <div class="report-content" id="report-content"></div>
+      <button class="copy-btn" id="copy-btn" onclick="copyReport()">Copy Report to Clipboard</button>
+    </div>
+    <button class="restart-btn" onclick="goBack()">Do Another Spot Check</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+// Each item: [question text (Yes = looks good), report text when No is tapped]
+const DATA = {
+  school: {
+    title: "🏫 School Spot Check",
+    estimateMinutes: 3,
+    zones: [
+      {
+        name: "Kitchen (by Auditorium)",
+        icon: "🍳",
+        timeEst: "~1 min",
+        items: [
+          ["Floor is clean", "Floor needs cleaning"],
+          ["Sink is clean and clear", "Sink needs cleaning"],
+          ["Counter is clean and clear", "Counter needs cleaning"],
+          ["Area is free of garbage", "There is garbage that needs to be cleared"],
+          ["Fridge is clear of expired food", "There is expired food in the fridge"]
+        ]
+      },
+      {
+        name: "Room Next to Kitchen",
+        icon: "🚪",
+        timeEst: "~30s",
+        items: [
+          ["Area is free of garbage", "There is garbage that needs to be cleared"],
+          ["Everything is tidy and in place", "Things are out of place and need tidying"]
+        ]
+      },
+      {
+        name: "Auditorium",
+        icon: "🎭",
+        timeEst: "~30s",
+        items: [
+          ["Tables are clean and clear", "Tables have garbage on them"],
+          ["All corners are clean", "There are things in the corners that need picking up"],
+          ["Garbage cans have bags", "Garbage cans are missing bags"]
+        ]
+      },
+      {
+        name: "Auditorium Bathroom",
+        icon: "🚻",
+        timeEst: "~30s",
+        items: [
+          ["Right-hand corner is clean", "Right-hand corner needs cleaning"],
+          ["Toilet paper is stocked", "Toilet paper needs restocking"],
+          ["Bathroom is clean overall", "Bathroom needs cleaning"],
+          ["Supplies are fully stocked", "Supplies need restocking"],
+          ["Area is free of garbage", "There is garbage that needs to be cleared"]
+        ]
+      },
+      {
+        name: "School Entrance",
+        icon: "🚪",
+        timeEst: "~30s",
+        items: [
+          ["Entrance area is clean and tidy", "Entrance area needs cleaning"],
+          ["Everything is in its place", "There are things out of place"]
+        ]
+      }
+    ]
+  },
+  convent: {
+    title: "🏠 Convent Spot Check",
+    estimateMinutes: 5,
+    zones: [
+      {
+        name: "Entrance (Bottom of Stairs)",
+        icon: "🚪",
+        timeEst: "~30s",
+        items: [
+          ["All garbage bags have been taken out", "There are garbage bags that need to be taken out"],
+          ["All packages have been delivered", "There are packages that need to be sent to people"],
+          ["Floor is clear", "There are things on the floor that need picking up"],
+          ["Shoes are properly placed on the stairs", "There are shoes out of place"],
+          ["Coat rack area is clean", "There is garbage around the coat rack"]
+        ]
+      },
+      {
+        name: "Hallway to Dining Room",
+        icon: "🚶",
+        timeEst: "~30s",
+        items: [
+          ["Hallway is clear", "There are things in the hallway that need picking up"],
+          ["Hallway is free of garbage", "There is garbage in the hallway"]
+        ]
+      },
+      {
+        name: "Dining Room",
+        icon: "🍽️",
+        timeEst: "~30s",
+        items: [
+          ["Table is clear and organized", "Table has things out of place"],
+          ["Table is free of leftover food", "There is leftover food on the table"],
+          ["Table surface is clean", "Table surface needs wiping down"],
+          ["Floor is clear", "There are things on the floor that have fallen down"],
+          ["Everything is in its proper place", "There are things that need to be put back"]
+        ]
+      },
+      {
+        name: "Small Kitchen (Prep Area)",
+        icon: "🍴",
+        timeEst: "~30s",
+        items: [
+          ["All dishes are done", "There are dishes that need washing"],
+          ["Area is free of leftover food", "There is leftover food lying around"],
+          ["Everything is in its place", "There are things that need to be moved somewhere else"],
+          ["Area is free of garbage bags", "There are garbage bags that need to go out"]
+        ]
+      },
+      {
+        name: "Main Kitchen",
+        icon: "🍳",
+        timeEst: "~30s",
+        items: [
+          ["Dishes are done", "There are dishes that need washing"],
+          ["Garbage bins aren't full", "Garbage is full and needs to be taken out"],
+          ["Garbage cans have bags", "Garbage cans are missing bags"],
+          ["Area is free of leftover food", "There is leftover food lying around"],
+          ["Fridge is clear of expired food", "There is old food in the fridge that needs to be thrown out"]
+        ]
+      },
+      {
+        name: "Bathroom (by Kitchen)",
+        icon: "🚻",
+        timeEst: "~30s",
+        items: [
+          ["Toilet paper is stocked", "Toilet paper needs restocking"],
+          ["Area is free of garbage", "There is garbage that needs to be cleared"],
+          ["Everything is in its place", "There are things out of place"]
+        ]
+      },
+      {
+        name: "Smoke Room (1st Floor)",
+        icon: "🚬",
+        timeEst: "~30s",
+        items: [
+          ["Everything is in its place", "There are things out of place"],
+          ["Room is clean and clear", "Room needs clearing out"],
+          ["Tobacco, filters, and lighters are stocked", "Tobacco, filters, or lighters need restocking"],
+          ["Floor and surfaces are clear", "There are things that need to be picked up"]
+        ]
+      },
+      {
+        name: "Living Room",
+        icon: "🛋️",
+        timeEst: "~30s",
+        items: [
+          ["All cups have been put away", "There are cups left out"],
+          ["Room is clean", "Room needs cleaning"],
+          ["Everything is in its place", "There are things out of place"],
+          ["Area is free of garbage", "There is garbage that needs to be cleared"]
+        ]
+      },
+      {
+        name: "Co-Working Space",
+        icon: "💻",
+        timeEst: "~30s",
+        items: [
+          ["Water jug is present and filled", "Water jug is missing or empty"],
+          ["Coffee beans and supplies are stocked", "Coffee beans or supplies need restocking"],
+          ["Garbage bins are not full", "Garbage bins are full and need to be taken out"],
+          ["Everything is put away and in place", "There are things that need to be put away"]
+        ]
+      },
+      {
+        name: "3rd Floor Hallway",
+        icon: "🚶",
+        timeEst: "~30s",
+        items: [
+          ["Everything is in its place", "There are things out of place that need to be put away"],
+          ["Hallway is free of garbage", "There is garbage in the hallway"]
+        ]
+      },
+      {
+        name: "3rd Floor Bathroom",
+        icon: "🚻",
+        timeEst: "~30s",
+        items: [
+          ["Hallway is tidy", "Hallway has things out of place"],
+          ["Toilet paper is stocked", "Toilet paper needs restocking"],
+          ["Toilets are clean", "Toilets need cleaning"],
+          ["All supplies are stocked", "Supplies need replacing"]
+        ]
+      }
+    ]
+  }
+};
+
+let currentType = null;
+let totalItems = 0;
+let answeredCount = 0;
+let xp = 0;
+let startTime = null;
+let streakCount = 0;
+// Track answers: { "zi-ii": "yes"|"no" }
+let answers = {};
+let currentZoneIndex = 0;
+
+function startChecklist(type) {
+  currentType = type;
+  const data = DATA[type];
+  answeredCount = 0;
+  xp = 0;
+  streakCount = 0;
+  answers = {};
+  currentZoneIndex = 0;
+  startTime = Date.now();
+
+  document.getElementById('selector').style.display = 'none';
+  document.getElementById('complete').style.display = 'none';
+  document.getElementById('checklist').style.display = 'block';
+  document.getElementById('checklist-title').textContent = data.title;
+
+  buildMinimap(data);
+
+  const zonesEl = document.getElementById('zones');
+  zonesEl.innerHTML = '';
+  totalItems = 0;
+
+  data.zones.forEach((zone, zi) => {
+    const zoneDiv = document.createElement('div');
+    zoneDiv.className = 'zone' + (zi === 0 ? ' current' : ' locked');
+    zoneDiv.id = 'zone-' + zi;
+
+    let itemsHTML = '';
+    zone.items.forEach((item, ii) => {
+      const id = `item-${zi}-${ii}`;
+      const label = item[0]; // question text
+      itemsHTML += `
+        <div class="check-item" id="wrap-${id}">
+          <span class="check-item-label">${label}</span>
+          <div class="yn-btns" id="btns-${id}">
+            <button class="yn-btn" onclick="answer(${zi},${ii},'yes',this)">Yes</button>
+            <button class="yn-btn" onclick="answer(${zi},${ii},'no',this)">No</button>
+          </div>
+        </div>`;
+      totalItems++;
+    });
+
+    zoneDiv.innerHTML = `
+      <div class="zone-header" onclick="toggleZone(${zi})">
+        <h3>${zone.icon} ${zone.name}</h3>
+        <div>
+          <span class="zone-time">${zone.timeEst}</span>
+          <span class="zone-badge ${zi === 0 ? 'active' : 'pending'}" id="badge-${zi}">${zi === 0 ? 'Current' : 'Pending'}</span>
+        </div>
+      </div>
+      <div class="zone-items" id="items-${zi}" style="display:${zi === 0 ? 'block' : 'none'}">
+        ${itemsHTML}
+      </div>`;
+    zonesEl.appendChild(zoneDiv);
+  });
+
+  updateProgress();
+}
+
+function buildMinimap(data) {
+  const mm = document.getElementById('minimap');
+  mm.innerHTML = '';
+  data.zones.forEach((zone, zi) => {
+    if (zi > 0) {
+      const conn = document.createElement('div');
+      conn.className = 'minimap-connector';
+      conn.id = 'mm-conn-' + zi;
+      mm.appendChild(conn);
+    }
+    const node = document.createElement('div');
+    node.className = 'minimap-node';
+    node.innerHTML = `
+      <div class="minimap-dot ${zi === 0 ? 'active' : 'pending'}" id="mm-dot-${zi}">
+        <span class="minimap-icon">${zone.icon}</span>
+        ${zi === 0 ? '<span class="minimap-avatar">🚶</span>' : ''}
+      </div>
+      <div class="minimap-label ${zi === 0 ? 'active' : ''}" id="mm-label-${zi}">${zone.name.split('(')[0].split(' ').slice(0,2).join(' ')}</div>`;
+    mm.appendChild(node);
+  });
+}
+
+function updateMinimap(activeZi) {
+  const data = DATA[currentType];
+  data.zones.forEach((zone, zi) => {
+    const dot = document.getElementById('mm-dot-' + zi);
+    const label = document.getElementById('mm-label-' + zi);
+    const conn = zi > 0 ? document.getElementById('mm-conn-' + zi) : null;
+
+    // Remove avatar from all
+    const existingAvatar = dot.querySelector('.minimap-avatar');
+    if (existingAvatar) existingAvatar.remove();
+
+    if (zi < activeZi) {
+      dot.className = 'minimap-dot done';
+      label.className = 'minimap-label';
+      if (conn) conn.className = 'minimap-connector done';
+    } else if (zi === activeZi) {
+      dot.className = 'minimap-dot active';
+      label.className = 'minimap-label active';
+      // Add avatar
+      const av = document.createElement('span');
+      av.className = 'minimap-avatar';
+      av.textContent = '🚶';
+      dot.appendChild(av);
+    } else {
+      dot.className = 'minimap-dot pending';
+      label.className = 'minimap-label';
+    }
+  });
+
+  // Scroll minimap to show active node
+  const activeNode = document.getElementById('mm-dot-' + activeZi);
+  if (activeNode) activeNode.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+}
+
+function toggleZone(zi) {
+  // Only allow toggling completed zones or the current zone
+  if (zi > currentZoneIndex) {
+    showToast('Complete the current zone first');
+    return;
+  }
+  const items = document.getElementById('items-' + zi);
+  items.style.display = items.style.display === 'none' ? 'block' : 'none';
+}
+
+function answer(zi, ii, val, btnEl) {
+  const id = `item-${zi}-${ii}`;
+  const key = `${zi}-${ii}`;
+  const wrap = document.getElementById('wrap-' + id);
+  const btnsDiv = document.getElementById('btns-' + id);
+  const wasAnswered = answers[key] !== undefined;
+
+  answers[key] = val;
+  if (!wasAnswered) answeredCount++;
+
+  // Style the buttons
+  const allBtns = btnsDiv.querySelectorAll('.yn-btn');
+  allBtns.forEach(b => {
+    b.classList.remove('yes-active', 'no-active');
+  });
+  if (val === 'yes') {
+    btnEl.classList.add('yes-active');
+    wrap.className = 'check-item answered-yes';
+  } else {
+    btnEl.classList.add('no-active');
+    wrap.className = 'check-item answered-no';
+  }
+
+  // Animation
+  spawnConfetti(wrap, val === 'yes' ? ['#6ee7b7','#059669','#34d399'] : ['#fbbf24','#f59e0b','#dc2626']);
+
+  // Add indicator
+  let indicator = wrap.querySelector('.answer-indicator');
+  if (indicator) indicator.remove();
+  indicator = document.createElement('span');
+  indicator.className = 'answer-indicator';
+  indicator.textContent = val === 'yes' ? '✅' : '⚠️';
+  wrap.insertBefore(indicator, wrap.firstChild);
+
+  // XP
+  if (!wasAnswered) {
+    streakCount++;
+    let pts = 10;
+    if (streakCount >= 5) pts = 20;
+    else if (streakCount >= 3) pts = 15;
+    xp += pts;
+    if (pts > 10) showToast(`🔥 Streak x${streakCount}! +${pts} XP`);
+  }
+
+  updateProgress();
+  checkZoneCompletion(zi);
+
+  if (answeredCount === totalItems) {
+    setTimeout(showComplete, 600);
+  }
+}
+
+function spawnConfetti(container, colors) {
+  const burst = document.createElement('div');
+  burst.className = 'confetti-burst';
+  container.appendChild(burst);
+  for (let i = 0; i < 8; i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti-particle';
+    const angle = (i / 8) * Math.PI * 2;
+    const dist = 25 + Math.random() * 20;
+    const dx = Math.cos(angle) * dist;
+    const dy = Math.sin(angle) * dist;
+    p.style.background = colors[Math.floor(Math.random() * colors.length)];
+    p.style.animation = `confettiPop 0.5s ease-out forwards`;
+    p.style.left = '0px';
+    p.style.top = '0px';
+    p.style.setProperty('--dx', dx + 'px');
+    p.style.setProperty('--dy', dy + 'px');
+    // Use transform directly
+    p.animate([
+      { transform: 'translate(0,0) scale(1)', opacity: 1 },
+      { transform: `translate(${dx}px,${dy}px) scale(0.3)`, opacity: 0 }
+    ], { duration: 500, easing: 'ease-out', fill: 'forwards' });
+    burst.appendChild(p);
+  }
+  setTimeout(() => burst.remove(), 600);
+}
+
+function checkZoneCompletion(zi) {
+  const data = DATA[currentType];
+  const zone = data.zones[zi];
+  let allDone = true;
+  for (let ii = 0; ii < zone.items.length; ii++) {
+    if (answers[`${zi}-${ii}`] === undefined) { allDone = false; break; }
+  }
+
+  const badge = document.getElementById('badge-' + zi);
+  const zoneEl = document.getElementById('zone-' + zi);
+
+  if (allDone) {
+    badge.className = 'zone-badge done';
+    badge.textContent = '✓ Done';
+    zoneEl.classList.remove('current');
+
+    const nextZi = zi + 1;
+    if (nextZi < data.zones.length) {
+      currentZoneIndex = nextZi;
+      const nextBadge = document.getElementById('badge-' + nextZi);
+      if (nextBadge.textContent === 'Pending') {
+        nextBadge.className = 'zone-badge active';
+        nextBadge.textContent = 'Current';
+        const nextZoneEl = document.getElementById('zone-' + nextZi);
+        nextZoneEl.classList.remove('locked');
+        nextZoneEl.classList.add('current');
+        document.getElementById('items-' + nextZi).style.display = 'block';
+        document.getElementById('items-' + zi).style.display = 'none';
+        updateMinimap(nextZi);
+        setTimeout(() => {
+          document.getElementById('zone-' + nextZi).scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 200);
+      }
+    } else {
+      // All zones done
+      currentZoneIndex = data.zones.length;
+      updateMinimap(data.zones.length - 1);
+      // Mark last dot done after a beat
+      setTimeout(() => {
+        const lastDot = document.getElementById('mm-dot-' + (data.zones.length - 1));
+        if (lastDot) { lastDot.className = 'minimap-dot done'; }
+      }, 300);
+    }
+  } else {
+    badge.className = 'zone-badge active';
+    badge.textContent = 'Current';
+    zoneEl.classList.add('current');
+  }
+}
+
+function updateProgress() {
+  const pct = totalItems ? Math.round((answeredCount / totalItems) * 100) : 0;
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-text').textContent = `${answeredCount} / ${totalItems}`;
+  document.getElementById('xp-count').textContent = xp;
+
+  const data = DATA[currentType];
+  const remaining = totalItems - answeredCount;
+  const avgSecPerItem = (data.estimateMinutes * 60) / totalItems;
+  const secLeft = Math.round(remaining * avgSecPerItem);
+  const minLeft = Math.floor(secLeft / 60);
+  const sLeft = secLeft % 60;
+  document.getElementById('time-remaining').textContent = remaining > 0
+    ? `~${minLeft}m ${sLeft}s remaining`
+    : 'Done!';
+}
+
+function buildReport() {
+  const data = DATA[currentType];
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const elapsed = Math.round((Date.now() - startTime) / 1000);
+  const min = Math.floor(elapsed / 60);
+  const sec = elapsed % 60;
+
+  let allGood = true;
+
+  let report = `${data.title}\n${dateStr} at ${timeStr}\nCompleted in ${min}m ${sec}s\n`;
+  report += `─────────────────────\n`;
+
+  let goodZones = [];
+  let issueBlocks = [];
+
+  data.zones.forEach((zone, zi) => {
+    let zoneIssues = [];
+    zone.items.forEach((item, ii) => {
+      if (answers[`${zi}-${ii}`] === 'no') {
+        zoneIssues.push(item[1]);
+        allGood = false;
+      }
+    });
+
+    if (zoneIssues.length > 0) {
+      let block = `⚠️ ${zone.icon} ${zone.name}\n`;
+      zoneIssues.forEach(issue => { block += `  - ${issue}\n`; });
+      issueBlocks.push(block);
+    } else {
+      goodZones.push(`${zone.icon}`);
+    }
+  });
+
+  if (goodZones.length > 0) {
+    report += `✅ ${goodZones.join(' ')}\n`;
+  }
+
+  if (issueBlocks.length > 0) {
+    report += `\n`;
+    issueBlocks.forEach(block => { report += block + `\n`; });
+  }
+
+  report += `─────────────────────\n`;
+  if (allGood) {
+    report += `All clear! Everything looks good.`;
+  } else {
+    report += `Issues found — see above.`;
+  }
+
+  return report;
+}
+
+function showComplete() {
+  document.getElementById('checklist').style.display = 'none';
+  document.getElementById('complete').style.display = 'flex';
+
+  const elapsed = Math.round((Date.now() - startTime) / 1000);
+  const min = Math.floor(elapsed / 60);
+  const sec = elapsed % 60;
+  document.getElementById('final-stats').textContent =
+    `Completed in ${min}m ${sec}s — ${totalItems} items checked`;
+  document.getElementById('final-xp').textContent = `⭐ ${xp} XP earned!`;
+
+  const report = buildReport();
+  document.getElementById('report-content').textContent = report;
+}
+
+function copyReport() {
+  const report = document.getElementById('report-content').textContent;
+  navigator.clipboard.writeText(report).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = '✓ Copied! Paste into group chat';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = 'Copy Report to Clipboard';
+      btn.classList.remove('copied');
+    }, 3000);
+  });
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1500);
+}
+
+function goBack() {
+  document.getElementById('checklist').style.display = 'none';
+  document.getElementById('complete').style.display = 'none';
+  document.getElementById('selector').style.display = 'flex';
+}
+</script>
+</body>
+</html>
