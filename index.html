@@ -222,6 +222,28 @@
   #complete .final-stats { color: #94a3b8; font-size: 14px; }
   #complete .final-xp { font-size: 24px; color: #a78bfa; font-weight: 700; margin: 8px 0; }
 
+  .action-card {
+    width: 100%; max-width: 500px; background: linear-gradient(135deg, #7c2d12, #991b1b);
+    border: 2px solid #f59e0b; border-radius: 12px; padding: 16px; text-align: left;
+    margin-top: 12px; box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+    animation: pulseAttention 2s ease-in-out infinite;
+  }
+  @keyframes pulseAttention {
+    0%, 100% { box-shadow: 0 0 20px rgba(245, 158, 11, 0.3); }
+    50% { box-shadow: 0 0 30px rgba(245, 158, 11, 0.6); }
+  }
+  .action-card h3 {
+    font-size: 16px; font-weight: 700; margin-bottom: 10px; color: #fef3c7;
+  }
+  .action-card ul {
+    list-style: none; padding: 0; margin: 0;
+  }
+  .action-card li {
+    font-size: 14px; color: #fff; line-height: 1.5; padding: 8px 0;
+    border-top: 1px solid rgba(255,255,255,0.15);
+  }
+  .action-card li:first-child { border-top: none; padding-top: 0; }
+
   .report-box {
     width: 100%; max-width: 500px; background: #1e293b; border: 1px solid #334155;
     border-radius: 12px; padding: 16px; text-align: left; margin-top: 12px;
@@ -309,6 +331,10 @@
     <h2>Spot Check Complete!</h2>
     <div class="final-stats" id="final-stats"></div>
     <div class="final-xp" id="final-xp"></div>
+    <div class="action-card" id="action-card" style="display:none">
+      <h3>🚨 Action Required</h3>
+      <ul id="action-list"></ul>
+    </div>
     <div class="report-box">
       <h3>Report</h3>
       <div class="report-content" id="report-content"></div>
@@ -321,7 +347,7 @@
 </div>
 
 <script>
-// Each item: [question text (Yes = looks good), report text when No is tapped]
+// Each item: [question text (Yes = looks good), report text when No, optional action prompt when No]
 const DATA = {
   school: {
     title: "🏫 School Spot Check",
@@ -391,7 +417,7 @@ const DATA = {
         timeEst: "~30s",
         items: [
           ["All garbage bags have been taken out", "There are garbage bags that need to be taken out"],
-          ["All packages have been delivered", "There are packages that need to be sent to people"],
+          ["All packages have been delivered", "There are packages that need to be sent to people", "📸 Take a photo of the packages and send it to the group chat"],
           ["Floor is clear", "There are things on the floor that need picking up"],
           ["Shoes are properly placed on the stairs", "There are shoes out of place"],
           ["Coat rack area is clean", "There is garbage around the coat rack"]
@@ -804,6 +830,7 @@ function buildReport() {
 
   let goodZones = [];
   let issueBlocks = [];
+  let actions = collectActions();
 
   data.zones.forEach((zone, zi) => {
     let zoneIssues = [];
@@ -822,6 +849,12 @@ function buildReport() {
       goodZones.push(`${zone.icon}`);
     }
   });
+
+  if (actions.length > 0) {
+    report += `\n🚨 ACTION REQUIRED:\n`;
+    actions.forEach(a => { report += `  ${a}\n`; });
+    report += `\n`;
+  }
 
   if (goodZones.length > 0) {
     report += `✅ ${goodZones.join(' ')}\n`;
@@ -842,6 +875,19 @@ function buildReport() {
   return report;
 }
 
+function collectActions() {
+  const data = DATA[currentType];
+  const actions = [];
+  data.zones.forEach((zone, zi) => {
+    zone.items.forEach((item, ii) => {
+      if (answers[`${zi}-${ii}`] === 'no' && item[2]) {
+        actions.push(item[2]);
+      }
+    });
+  });
+  return actions;
+}
+
 function showComplete() {
   document.getElementById('checklist').style.display = 'none';
   document.getElementById('complete').style.display = 'flex';
@@ -852,6 +898,21 @@ function showComplete() {
   document.getElementById('final-stats').textContent =
     `Completed in ${min}m ${sec}s — ${totalItems} items checked`;
   document.getElementById('final-xp').textContent = `⭐ ${xp} XP earned!`;
+
+  const actions = collectActions();
+  const actionCard = document.getElementById('action-card');
+  const actionList = document.getElementById('action-list');
+  if (actions.length > 0) {
+    actionList.innerHTML = '';
+    actions.forEach(a => {
+      const li = document.createElement('li');
+      li.textContent = a;
+      actionList.appendChild(li);
+    });
+    actionCard.style.display = 'block';
+  } else {
+    actionCard.style.display = 'none';
+  }
 
   const report = buildReport();
   document.getElementById('report-content').textContent = report;
